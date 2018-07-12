@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+</head>
+<body>
+    <textarea id="privateKey">key</textarea>
+    <textarea id="data">data</textarea>
+    <button onclick="calculate()">calculate</button>
+    <div id="result"></div>
+
+    <script>
+        var privateKeyElement = document.querySelector('#privateKey')
+        var dataElement = document.querySelector('#data')
+        var resultElement = document.querySelector('#result')
+
+        var p = 103 //p должно быть простым
+        var g = 99
+
+        function createNumber(length, p) {
+            var data = []
+
+            for(var i = 0; i < length; ++i)
+                data.push(0)
+
+            return {
+                p:    p,
+                data: data
+            }
+        }
+
+        function copyNumber(number) {
+            var newNumber = createNumber(number.data.length, number.p)
+
+            for(var i = 0; i < number.data.length; ++i)
+                newNumber.data[i] = number.data[i]
+
+            return newNumber
+        }
+
+        function createPrimeNumber(length) {
+            var number = createNumber(length)
+
+            number.data[0] = 1
+            number.data[1] = 0
+            number.data[2] = 1
+            number.data[3] = 1
+
+            return number
+        }
+
+        function createRandomNumber(length, p) {
+            var number = createNumber(length, p)
+
+            for(var i = 0; i < length; ++i)
+                number.data[i] = Math.floor( Math.random() * 2 )
+
+            return number
+        }
+
+        function plus(a, b) {
+            var remain = 0
+
+            for(var i = 0; i < a.data.length; ++i) {
+                var sum = a.data[i] + b.data[i] + remain
+                a.data[i] = sum % 2
+                remain = Math.floor(sum / 2)
+            }
+        }
+
+        function minus(a, b) {
+            var is_remain = false
+
+            for(var i = 0; i < a.data.length; ++i) {
+                var difference = a.data[i] - b.data[i]
+
+                if(is_remain)
+                    --difference
+
+                is_remain = difference < 0
+
+                if(difference < 0)
+                    difference = -difference
+
+                a.data[i] = difference & 1
+            }
+        }
+
+        function leftShift(a, n) {
+            for(var i = a.data.length; i - n; --i)
+                a.data[i - 1] = a.data[i - 1 - n]
+
+            for(var i = 0; i < n; ++i)
+                a.data[i] = 0
+        }
+
+        function oneLeftShift(a) {
+            for(var i = a.data.length; i; --i)
+                a.data[i - 1] = a.data[i - 2]
+
+            a.data[0] = 0
+        }
+
+        function mul(a, b) {
+            var result = createNumber(a.data.length, a.p)
+            var shifter = createNumber(a.data.length, a.p)
+
+            for(var i = 0; i < a.data.length; ++i) {
+                var remain = 0
+
+                for(var j = 0; j < a.data.length; ++j) {
+                    var product = a.data[i] * b.data[j] + remain
+                    shifter.data[j] = product % 2
+                    remain = (product / 2) | 0//Math.floor(product / 2)
+                }
+
+                leftShift(shifter, i)
+                plus(result, shifter)
+            }
+
+            return result
+        }
+
+        function equal(a, b){
+            for(var i = 0; i < a.data.length; ++i)
+                if(a.data[i] != b.data[i])
+                    return false
+
+            return true
+        }
+
+        function greatherThenOrEqual(a, b){
+            for(var i = a.data.length; i; --i){
+                var cmp = a.data[i - 1] - b.data[i - 1]
+
+                if(cmp < 0)
+                    return false
+                
+                if(cmp > 0)
+                    return true
+            }
+
+            return true
+        }
+
+        function greatherThen(a, b){
+            for(var i = a.data.length; i; --i){
+                var cmp = a.data[i - 1] - b.data[i - 1]
+
+                if(cmp < 0)
+                    return false
+                
+                if(cmp > 0)
+                    return true
+            }
+
+            return false
+        }
+
+        function div(a, b) {
+            var remain = createNumber(a.data.length, a.p)
+            var result = createNumber(a.data.length, a.p)
+
+            for(var i = a.data.length; i; --i){
+                var index = i - 1
+
+                oneLeftShift(remain)
+                remain.data[0] = a.data[index]
+
+                if(greatherThenOrEqual(remain, b)){
+                    result.data[index] = 1
+                    minus(remain, b)
+                }
+            }
+
+            return {
+                result: result,
+                remain: remain
+            }
+        }
+
+        function numberIsNull(a) {
+            for(var i = 0; i < a.data.length; ++i)
+                if(a.data[i])
+                    return false
+
+            return true
+        }
+
+        function NOD(a, b) {
+            while (a && b)
+                if (a > b)
+                    a %= b
+                else
+                    b %= a;
+
+            return a + b;
+        }
+
+        function numberNOD(a, b) {
+            a = copyNumber(a)
+            b = copyNumber(b)
+
+            for(;;){
+                if(numberIsNull(a))
+                    return b
+
+                if(numberIsNull(b))
+                    return a
+
+                if(greatherThen(a, b))
+                    a = div(a, b).remain
+                else
+                    b = div(b, a).remain
+            }
+        }
+
+        function subNumberByMod(a, b, p) {
+            //var result = a - b
+            a = copyNumber(a)
+            minus(a, b)
+
+            /*while(result < 0)
+                result += p
+
+            return result % p*/
+
+            return div(a, p).remain
+        }
+
+        function mulNumberByMod(a, b, p) {
+            return div(
+                mul(
+                    a,
+                    b
+                ),
+
+                p
+            ).remain
+        }
+
+        function powNumberByMod(a, n, p) {
+            var one = createNumber(a.data.length)
+                one.data[0] = 1
+            var result = copyNumber(one)
+
+            n = copyNumber(n)
+
+            while(!numberIsNull(n)) {
+                result = mulNumberByMod(result, a, p)
+                minus(n, one)
+            }
+
+            return result
+        }
+
+        var a = createNumber(4)
+        var b = createNumber(4)
+
+        a.data[3] = 0
+        a.data[2] = 1
+        a.data[1] = 0
+        a.data[0] = 0
+
+        b.data[3] = 0
+        b.data[2] = 0
+        b.data[1] = 1
+        b.data[0] = 1
+
+        //console.log(div(a, b))
+
+        //minus(a, b)
+        //console.log(a)
+
+        //console.log(div(a, b))
+        //console.log(plus(a, b))
+        //console.log(minus(b, a))
+        //console.log(mul(a, b))
+
+        //console.log(div(a, b))
+
+        //console.log(numberNOD(a, b))
+
+/*
+        function mul(number1, number2) {
+            var result = createNumber(number1.length, number1.p)
+
+            for(var i = 0; i < number1.data.length; ++i) {
+                for(var j = 0; j < number2.data.length; ++j) {
+
+                }
+            }
+
+            return result
+        }*/
+
+        //console.log(createRandomNumber(4, p))
+
+        function hash(data, p) {
+            return data[0].charCodeAt() % p
+/*
+            var result = []
+
+            for(var i = 0; i < p; ++i)
+                result.push(i)
+
+            for(var i = 0; i < data.length; ++i)
+                result[i % p] += data[i].charCodeAt()
+
+            return result*/
+        }
+
+        function randomNumber(p) {
+            return Math.floor(Math.random() * 0xFF)
+/*
+            var result = []
+
+            for(var i = 0; i < p; ++i)
+                result.push( Math.floor( Math.random() * 256 ) )
+
+            return result*/
+        }
+
+        function NOD(a, b) {
+            while (a && b)
+                if (a > b)
+                    a %= b
+                else
+                    b %= a;
+
+            return a + b;
+        }
+
+        function mulByMod(a, b, p) {
+            return (a * b) % p
+        }
+
+        function subByMod(a, b, p) {
+            var result = a - b
+
+            while(result < 0)
+                result += p
+
+            return result % p
+        }
+
+        function powByMod(a, n, p) {
+            /*var one = createNumber(n.data.length)
+                one.data[0] = 1
+            var result = copyNumber(one)
+
+            //for(var i = 0; i < n; ++i)
+            while(!numberIsNull(n)) {
+                result = mulByMod(result, a, p)
+                minus(n, one)
+
+                alert()
+            }
+
+            return result*/
+        }
+
+        function calculateReverseNumberByMod(n, p) {
+            /*for(var reverseNumber = 0; reverseNumber < p; ++reverseNumber)
+                if(mulByMod(n, reverseNumber, p) == 1)
+                    return reverseNumber*/
+
+            var one = createNumber(n.data.length)
+                one.data[0] = 1
+
+            var reverseNumber = createNumber(n.data.length)
+
+            for(var reverseNumber = createNumber(n.data.length); greatherThen(p, reverseNumber); plus(reverseNumber, one))
+                if(equal(mulNumberByMod(n, reverseNumber, p), one))
+                    return reverseNumber
+
+            console.log('error ' + JSON.stringify(n.data) + ' ' + JSON.stringify(p.data))
+        }
+
+        function verify(hashM, r, s, y, g, p) {
+            /*return mulByMod(
+                    powByMod(y, r, p),
+                    powByMod(r, s, p),
+                    p
+                ) == powByMod(g, hashM, p)*/
+
+            return equal(
+                    mulNumberByMod(
+                        powNumberByMod(y, r, p),
+                        powNumberByMod(r, s, p),
+                        p
+                    ),
+
+                    powNumberByMod(g, hashM, p)
+                )
+        }
+/*
+        function calculate() {
+            var p_minus_1 = p - 1
+
+            var hashM = hash(dataElement.value, p)
+            var hashX =  hash(privateKeyElement.value, p)
+
+            var k = randomNumber(p)
+
+            while(NOD(k, p_minus_1) != 1)
+                ++k
+
+            var r = powByMod(g, k, p)
+
+            var s = mulByMod(
+                subByMod(
+                    hashM,
+                    mulByMod(
+                        hashX,
+                        r,
+                        p_minus_1
+                    ),
+                    p_minus_1
+                ),
+                calculateReverseNumberByMod(k, p_minus_1),
+                p_minus_1
+            )
+
+            resultElement.innerHTML = r + ' ' + s + ' ' + verify(hashM, r, s, powByMod(g, hashX, p), g, p)
+        }*/
+
+        function calculate() {
+            var g = createNumber(5)
+                g.data[1] = 1
+
+            var p = createPrimeNumber(5)
+            
+            var one = createNumber(5)
+                one.data[0] = 1
+
+            var p_minus_1 = copyNumber(p)
+                minus(p_minus_1, one)
+
+            var hashM = copyNumber(g) //hash(dataElement.value, p)
+            var hashX = copyNumber(g) //hash(privateKeyElement.value, p)
+
+            var k = createRandomNumber(5)
+            k = div(k, p).remain
+
+            while(!equal(numberNOD(k, p_minus_1), one))
+                plus(k, one)
+
+            var r = powNumberByMod(g, k, p)
+            console.log(r)
+
+            var s = mulNumberByMod(
+                subNumberByMod(
+                    hashM,
+                    mulNumberByMod(
+                        hashX,
+                        r,
+                        p_minus_1
+                    ),
+                    p_minus_1
+                ),
+                calculateReverseNumberByMod(k, p_minus_1),
+                p_minus_1
+            )
+
+            console.log(s)
+
+            console.log(verify(hashM, r, s, powNumberByMod(g, hashX, p), g, p))
+
+            /*var p_minus_1 = p - 1
+
+            var hashM = hash(dataElement.value, p)
+            var hashX =  hash(privateKeyElement.value, p)
+
+            var k = randomNumber(p)
+
+            while(NOD(k, p_minus_1) != 1)
+                ++k
+
+            var r = powByMod(g, k, p)
+
+            var s = mulByMod(
+                subByMod(
+                    hashM,
+                    mulByMod(
+                        hashX,
+                        r,
+                        p_minus_1
+                    ),
+                    p_minus_1
+                ),
+                calculateReverseNumberByMod(k, p_minus_1),
+                p_minus_1
+            )
+
+            resultElement.innerHTML = r + ' ' + s + ' ' + verify(hashM, r, s, powByMod(g, hashX, p), g, p)*/
+        }
+    </script>
+</body>
+</html>
